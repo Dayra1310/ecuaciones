@@ -52,3 +52,39 @@ export interface NewtonCoolingResponse {
   solution: string;
   steps: StepDetail[];
 }
+
+export interface QuizExerciseParams {
+  tipo: string;
+  P0?: number;
+  P?: number;
+  A1?: number;
+  A2?: number;
+  N?: number;
+  Tm?: number;
+  T0?: number;
+  T?: number;
+  t?: number;
+  t2?: number;
+}
+
+export interface Quiz1ResultItem {
+  k: number;
+  valorProyectado: number;
+}
+
+export interface Quiz1Request {
+  exercises: QuizExerciseParams[];
+}
+
+export interface Quiz1Response {
+  resultados: Quiz1ResultItem[];
+}
+
+export interface Quiz2Blank {
+  id: string;
+  respuesta: number | string;
+}
+
+export interface Quiz2Response {
+  blanks: Quiz2Blank[];
+}

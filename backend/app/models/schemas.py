@@ -54,3 +54,39 @@ class NewtonCoolingResponse(BaseModel):
     k: float
     solution: str
     steps: list[StepDetail]
+
+
+class QuizExerciseParams(BaseModel):
+    tipo: str
+    P0: float | None = None
+    P: float | None = None
+    A1: float | None = None
+    A2: float | None = None
+    N: float | None = None
+    Tm: float | None = None
+    T0: float | None = None
+    T: float | None = None
+    t: float | None = None
+    t2: float | None = None
+
+
+class Quiz1Request(BaseModel):
+    exercises: list[QuizExerciseParams]
+
+
+class Quiz1ResultItem(BaseModel):
+    k: float
+    valorProyectado: float
+
+
+class Quiz1Response(BaseModel):
+    resultados: list[Quiz1ResultItem]
+
+
+class Quiz2Blank(BaseModel):
+    id: str
+    respuesta: str | float
+
+
+class Quiz2Response(BaseModel):
+    blanks: list[Quiz2Blank]

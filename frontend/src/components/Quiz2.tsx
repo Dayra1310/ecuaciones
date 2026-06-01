@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { generarQuiz2, type PreguntaQuiz2 } from "../data/quiz2Ejercicios";
+import { generarQuiz2, type PreguntaQuiz2, type Segmento } from "../data/quiz2Ejercicios";
+import { evaluateQuiz2 } from "../services/api";
+import type { QuizExerciseParams, Quiz2Blank } from "../types/equation";
 
 const TOL = 0.01;
 
@@ -12,8 +14,24 @@ function normalizar(s: string): string {
   return s.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+function overrideBlanks(pasos: Segmento[][], blanks: Quiz2Blank[]): Segmento[][] {
+  const map = new Map(blanks.map((b) => [b.id, b.respuesta]));
+  return pasos.map((paso) =>
+    paso.map((seg) => {
+      if (seg.tipo === "blank" && map.has(seg.id)) {
+        return { ...seg, respuesta: String(map.get(seg.id)!) };
+      }
+      if (seg.tipo === "blank-num" && map.has(seg.id)) {
+        return { ...seg, respuesta: Number(map.get(seg.id)!) };
+      }
+      return seg;
+    })
+  );
+}
+
 export function Quiz2() {
   const [iniciado, setIniciado] = useState(false);
+  const [cargando, setCargando] = useState(false);
   const [cantidad, setCantidad] = useState(5);
   const [preguntas, setPreguntas] = useState<PreguntaQuiz2[]>([]);
   const [actual, setActual] = useState(0);
@@ -22,10 +40,31 @@ export function Quiz2() {
   const [enviados, setEnviados] = useState<Record<number, boolean>>({});
   const [mostrandoResultado, setMostrandoResultado] = useState(false);
 
-  const comenzar = () => {
+  const comenzar = async () => {
     const n = Math.max(1, Math.min(20, cantidad || 1));
-    setPreguntas(generarQuiz2(n));
-    setIniciado(true);
+    setCargando(true);
+
+    const preguntasGeneradas = generarQuiz2(n);
+
+    try {
+      const actualizadas = await Promise.all(
+        preguntasGeneradas.map(async (pq) => {
+          const params: QuizExerciseParams = { tipo: pq.tipo, ...pq._params };
+          const response = await evaluateQuiz2(params);
+          return {
+            ...pq,
+            pasos: overrideBlanks(pq.pasos, response.blanks),
+          };
+        })
+      );
+      setPreguntas(actualizadas);
+      setIniciado(true);
+    } catch (err) {
+      console.error("Error al evaluar quiz2:", err);
+      alert("Error al conectar con el servidor. Intenta de nuevo.");
+    } finally {
+      setCargando(false);
+    }
   };
 
   if (!iniciado) {
@@ -45,8 +84,8 @@ export function Quiz2() {
           />
           <span className="quiz-config-hint">(1 a 20)</span>
         </div>
-        <button className="quiz-btn primary" onClick={comenzar}>
-          Comenzar
+        <button className="quiz-btn primary" onClick={comenzar} disabled={cargando}>
+          {cargando ? "Cargando..." : "Comenzar"}
         </button>
       </div>
     );
@@ -71,11 +110,11 @@ export function Quiz2() {
           const valor = getResp(seg.id);
           if (seg.tipo === "blank") {
             nuevosResultados[`${actual}-${seg.id}`] =
-              normalizar(valor) === normalizar(seg.respuesta);
+              normalizar(valor) === normalizar(String(seg.respuesta));
           } else {
             const num = parseFloat(valor);
             nuevosResultados[`${actual}-${seg.id}`] =
-              !isNaN(num) && casiIgualNum(num, seg.respuesta);
+              !isNaN(num) && casiIgualNum(num, Number(seg.respuesta));
           }
         }
       }
@@ -199,7 +238,7 @@ export function Quiz2() {
                         </select>
                         {mostrarResultado && (
                           <span className="quiz2-respuesta">
-                            {res ? "✓" : seg.respuesta}
+                            {res ? "✓" : String(seg.respuesta)}
                           </span>
                         )}
                       </span>
@@ -219,7 +258,7 @@ export function Quiz2() {
                       />
                       {mostrarResultado && (
                         <span className="quiz2-respuesta">
-                          {res ? "✓" : seg.respuesta}
+                          {res ? "✓" : String(seg.respuesta)}
                         </span>
                       )}
                     </span>

@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { PopulationGrowthRequest, PopulationGrowthResponse, RadioactiveDecayRequest, RadioactiveDecayResponse, C14DatingRequest, C14DatingResponse, NewtonCoolingRequest, NewtonCoolingResponse } from "../types/equation";
+import type { PopulationGrowthRequest, PopulationGrowthResponse, RadioactiveDecayRequest, RadioactiveDecayResponse, C14DatingRequest, C14DatingResponse, NewtonCoolingRequest, NewtonCoolingResponse, Quiz1Request, Quiz1Response, QuizExerciseParams, Quiz2Response } from "../types/equation";
 
 const apiBaseUrl = (import.meta.env.VITE_API_URL ?? "/api/v1").replace(/\/$/, "");
 
@@ -25,5 +25,15 @@ export async function solveC14Dating(data: C14DatingRequest): Promise<C14DatingR
 
 export async function solveNewtonCooling(data: NewtonCoolingRequest): Promise<NewtonCoolingResponse> {
   const res = await api.post<NewtonCoolingResponse>("/equations/newton-cooling", data);
+  return res.data;
+}
+
+export async function evaluateQuiz1(data: Quiz1Request): Promise<Quiz1Response> {
+  const res = await api.post<Quiz1Response>("/quiz/evaluate-quiz1", data);
+  return res.data;
+}
+
+export async function evaluateQuiz2(data: QuizExerciseParams): Promise<Quiz2Response> {
+  const res = await api.post<Quiz2Response>("/quiz/evaluate-quiz2", data);
   return res.data;
 }

@@ -9,6 +9,7 @@ export interface QuizExercise {
   k: number;
   valorProyectado: number;
   datos: { label: string; valor: string }[];
+  _params?: Record<string, number | undefined>;
 }
 
 type QuizSource =
@@ -16,27 +17,6 @@ type QuizSource =
   | { tipo: "decaimiento"; ej: DecaimientoEjercicio }
   | { tipo: "newton"; ej: NewtonEjercicio }
   | { tipo: "c14"; ej: C14Ejercicio };
-
-function computeCrecimiento(P0: number, P: number, t: number, t2: number): { k: number; proyeccion: number } {
-  const k = Math.log(P / P0) / t;
-  return { k, proyeccion: P0 * Math.exp(k * t2) };
-}
-
-function computeDecaimiento(A1: number, A2: number, t: number, t2: number): { k: number; proyeccion: number } {
-  const k = Math.log(A1 / A2) / t;
-  return { k, proyeccion: A1 * Math.exp(-k * t2) };
-}
-
-function computeNewton(Tm: number, T0: number, t: number, T: number, t2: number): { k: number; proyeccion: number } {
-  const k = Math.log((T - Tm) / (T0 - Tm)) / t;
-  return { k, proyeccion: Tm + (T0 - Tm) * Math.exp(k * t2) };
-}
-
-function computeC14(N: number): { k: number; proyeccion: number } {
-  const k = Math.LN2 / 5730;
-  const age = -Math.log(N / 100) / k;
-  return { k, proyeccion: age };
-}
 
 function getRandomFrom<T>(arr: T[], count: number): T[] {
   const shuffled = [...arr].sort(() => Math.random() - 0.5);
@@ -54,19 +34,16 @@ export function generarQuiz(cantidad: number = 5): QuizExercise[] {
   const seleccionados = getRandomFrom(todos, cantidad);
 
   return seleccionados.map(({ tipo, ej }) => {
-    let k: number;
-    let proyeccion: number;
     let enunciado: string;
     let datos: { label: string; valor: string }[];
+    let params: Record<string, number | undefined>;
 
     if (tipo === "crecimiento") {
       const P0 = parseFloat(ej.P0);
       const P = parseFloat(ej.P);
       const t = parseFloat(ej.t);
       const t2 = parseFloat(ej.t2);
-      const res = computeCrecimiento(P0, P, t, t2);
-      k = res.k;
-      proyeccion = res.proyeccion;
+      params = { P0, P, t, t2 };
       datos = [
         { label: "Población inicial (P₀)", valor: ej.P0 },
         { label: "Tiempo (t)", valor: ej.t + " años" },
@@ -79,9 +56,7 @@ export function generarQuiz(cantidad: number = 5): QuizExercise[] {
       const A2 = parseFloat(ej.A2);
       const t = parseFloat(ej.t);
       const t2 = parseFloat(ej.t2);
-      const res = computeDecaimiento(A1, A2, t, t2);
-      k = res.k;
-      proyeccion = res.proyeccion;
+      params = { A1, A2, t, t2 };
       datos = [
         { label: "Cantidad inicial (A₀)", valor: ej.A1 + " " + ej.entidad },
         { label: "Tiempo (t)", valor: ej.t + " horas" },
@@ -90,9 +65,7 @@ export function generarQuiz(cantidad: number = 5): QuizExercise[] {
       enunciado = `${ej.contexto} Inicialmente hay ${ej.A1} ${ej.entidad} y después de ${ej.t} horas quedan ${ej.A2} ${ej.entidad}. a) Encuentre la constante k. b) Calcule la cantidad restante al cabo de ${ej.t2} horas.`;
     } else if (tipo === "c14") {
       const N = parseFloat(ej.N);
-      const res = computeC14(N);
-      k = res.k;
-      proyeccion = res.proyeccion;
+      params = { N };
       datos = [
         { label: "Concentración actual (N)", valor: ej.N + "%" },
       ];
@@ -103,9 +76,7 @@ export function generarQuiz(cantidad: number = 5): QuizExercise[] {
       const t = parseFloat(ej.t);
       const T = parseFloat(ej.T);
       const t2 = parseFloat(ej.t2);
-      const res = computeNewton(Tm, T0, t, T, t2);
-      k = res.k;
-      proyeccion = res.proyeccion;
+      params = { Tm, T0, t, T, t2 };
       datos = [
         { label: "Temperatura ambiente (Tₘ)", valor: ej.Tm + " °C" },
         { label: "Temperatura inicial (T₀)", valor: ej.T0 + " °C" },
@@ -116,6 +87,6 @@ export function generarQuiz(cantidad: number = 5): QuizExercise[] {
       enunciado = `${ej.contexto} Inicialmente está a ${ej.T0}°C y a los ${ej.t} minutos está a ${ej.T}°C. a) Encuentre la constante k. b) Calcule la temperatura al cabo de ${ej.t2} minutos.`;
     }
 
-    return { tipo, enunciado, k, valorProyectado: proyeccion, datos };
+    return { tipo, enunciado, k: 0, valorProyectado: 0, datos, _params: params };
   });
 }

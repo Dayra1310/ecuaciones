@@ -16,6 +16,7 @@ export interface PreguntaQuiz2 {
   esLineal: boolean;
   orden: number;
   pasos: Segmento[][];
+  _params: Record<string, number | undefined>;
 }
 
 type Quiz2Source =
@@ -56,6 +57,7 @@ export function generarQuiz2(cantidad: number = 5): PreguntaQuiz2[] {
         formaEstandar: "dP/dt - k·P = 0",
         esLineal: true,
         orden: 1,
+        _params: { P0, P, t, t2 },
         pasos: [
           [
             { tipo: "texto", contenido: "Paso 1: Identificar el tipo de ecuación." },
@@ -150,6 +152,7 @@ export function generarQuiz2(cantidad: number = 5): PreguntaQuiz2[] {
         formaEstandar: "dA/dt + k·A = 0",
         esLineal: true,
         orden: 1,
+        _params: { A1, A2, t, t2 },
         pasos: [
           [
             { tipo: "texto", contenido: "Paso 1: Identificar el tipo de ecuación." },
@@ -241,6 +244,7 @@ export function generarQuiz2(cantidad: number = 5): PreguntaQuiz2[] {
         formaEstandar: "dN/dt + k·N = 0",
         esLineal: true,
         orden: 1,
+        _params: { N },
         pasos: [
           [
             { tipo: "texto", contenido: "Paso 1: Identificar el tipo de ecuación." },
@@ -342,6 +346,7 @@ export function generarQuiz2(cantidad: number = 5): PreguntaQuiz2[] {
       formaEstandar: "dT/dt - k·T = -k·Tₘ",
       esLineal: true,
       orden: 1,
+      _params: { Tm, T0, t, T, t2 },
       pasos: [
         [
           { tipo: "texto", contenido: "Paso 1: Identificar el tipo de ecuación." },

@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { generarQuiz, type QuizExercise } from "../data/quizEjercicios";
-
-interface Respuesta {
-  k: string;
-  proyeccion: string;
-}
+import { generarQuiz } from "../data/quizEjercicios";
+import { evaluateQuiz1 } from "../services/api";
+import type { QuizExerciseParams, Quiz1ResultItem } from "../types/equation";
+import type { QuizExercise } from "../data/quizEjercicios";
 
 const TOLERANCIA = 0.05;
 
@@ -15,18 +13,45 @@ function casiIgual(a: number, b: number): boolean {
 
 export function Quiz() {
   const [iniciado, setIniciado] = useState(false);
+  const [cargando, setCargando] = useState(false);
   const [cantidad, setCantidad] = useState(5);
   const [preguntas, setPreguntas] = useState<QuizExercise[]>([]);
   const [actual, setActual] = useState(0);
-  const [respuestas, setRespuestas] = useState<Respuesta[]>([]);
+  const [respuestas, setRespuestas] = useState<{ k: string; proyeccion: string }[]>([]);
   const [resultados, setResultados] = useState<boolean[]>([]);
   const [mostrandoResultado, setMostrandoResultado] = useState(false);
   const [enviado, setEnviado] = useState(false);
 
-  const comenzar = () => {
+  const comenzar = async () => {
     const n = Math.max(1, Math.min(20, cantidad || 1));
-    setPreguntas(generarQuiz(n));
-    setIniciado(true);
+    setCargando(true);
+
+    const ejerciciosSeleccionados = generarQuiz(n);
+
+    const params: QuizExerciseParams[] = ejerciciosSeleccionados.map((ex) => {
+      const base: QuizExerciseParams = { tipo: ex.tipo };
+      if (ex._params) Object.assign(base, ex._params);
+      return base;
+    });
+
+    try {
+      const response = await evaluateQuiz1({ exercises: params });
+      const ejerciciosConRespuestas: QuizExercise[] = ejerciciosSeleccionados.map((ex, i) => {
+        const res: Quiz1ResultItem = response.resultados[i];
+        return {
+          ...ex,
+          k: res.k,
+          valorProyectado: res.valorProyectado,
+        };
+      });
+      setPreguntas(ejerciciosConRespuestas);
+      setIniciado(true);
+    } catch (err) {
+      console.error("Error al evaluar quiz:", err);
+      alert("Error al conectar con el servidor. Intenta de nuevo.");
+    } finally {
+      setCargando(false);
+    }
   };
 
   if (!iniciado) {
@@ -46,18 +71,17 @@ export function Quiz() {
           />
           <span className="quiz-config-hint">(1 a 20)</span>
         </div>
-        <button className="quiz-btn primary" onClick={comenzar}>
-          Comenzar
+        <button className="quiz-btn primary" onClick={comenzar} disabled={cargando}>
+          {cargando ? "Cargando..." : "Comenzar"}
         </button>
       </div>
     );
   }
 
   const pregunta = preguntas[actual];
+  const respuestaActual = respuestas[actual] ?? { k: "", proyeccion: "" };
 
-  const respuestaActual: Respuesta = respuestas[actual] ?? { k: "", proyeccion: "" };
-
-  const setRespuesta = (campo: keyof Respuesta, valor: string) => {
+  const setRespuesta = (campo: "k" | "proyeccion", valor: string) => {
     const nuevas = [...respuestas];
     nuevas[actual] = { ...respuestaActual, [campo]: valor };
     setRespuestas(nuevas);
