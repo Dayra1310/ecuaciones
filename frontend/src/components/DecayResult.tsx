@@ -34,6 +34,14 @@ export function DecayResult({ result }: Props) {
         Ver pasos detallados ({result.steps.length} pasos)
       </button>
 
+      <div className="videos-section">
+        <h3>Videos recomendados:</h3>
+        <ul>
+          <li><a href="https://www.youtube.com/watch?v=Qy2D50ax2js" target="_blank" rel="noopener noreferrer">Video 1</a></li>
+          <li><a href="https://www.youtube.com/watch?v=iuEEuTO9Hns" target="_blank" rel="noopener noreferrer">Video 2</a></li>
+        </ul>
+      </div>
+
       {showSteps && (
         <StepsModal
           steps={result.steps}

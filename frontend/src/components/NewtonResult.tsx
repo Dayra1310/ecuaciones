@@ -79,6 +79,15 @@ export function NewtonResult({ result, Tm, T0, t2, tempAtT2 }: Props) {
         Ver pasos detallados ({stepsWithExtra.length} pasos)
       </button>
 
+      <div className="videos-section">
+        <h3>Videos recomendados:</h3>
+        <ul>
+          <li><a href="https://www.youtube.com/watch?v=M7IO8cA8J5M" target="_blank" rel="noopener noreferrer">Video 1</a></li>
+          <li><a href="https://www.youtube.com/watch?v=6vVqmbjqnB8" target="_blank" rel="noopener noreferrer">Video 2</a></li>
+          <li><a href="https://www.youtube.com/watch?v=ie9Z3FrUmPs" target="_blank" rel="noopener noreferrer">Video 3</a></li>
+        </ul>
+      </div>
+
       {showSteps && (
         <StepsModal
           steps={stepsWithExtra}

@@ -74,6 +74,15 @@ export function PopulationResult({ result, P0, t2, popAtT2 }: Props) {
         Ver pasos detallados ({stepsWithExtra.length} pasos)
       </button>
 
+      <div className="videos-section">
+        <h3>Videos recomendados:</h3>
+        <ul>
+          <li><a href="https://www.youtube.com/watch?v=93k_xGsJTms" target="_blank" rel="noopener noreferrer">Video 1</a></li>
+          <li><a href="https://www.youtube.com/watch?v=bmAG0m5RpEs&t=6s" target="_blank" rel="noopener noreferrer">Video 2</a></li>
+          <li><a href="https://www.youtube.com/watch?v=-_TXQAzK7aQ" target="_blank" rel="noopener noreferrer">Video 3</a></li>
+        </ul>
+      </div>
+
       {showSteps && (
         <StepsModal
           steps={stepsWithExtra}
