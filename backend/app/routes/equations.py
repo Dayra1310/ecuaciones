@@ -21,6 +21,24 @@ import sympy as sp
 router = APIRouter(prefix="/equations", tags=["Equations"])
 
 
+def _real_solution(solutions: list) -> float:
+    for sol in solutions:
+        if sol.is_real:
+            return float(sol)
+    return float(solutions[0])
+
+
+def _classify_ode(ode, func):
+    classes = [c for c in sp.classify_ode(ode, func) if not c.endswith("_Integral")]
+    is_linear = any("linear" in c for c in classes)
+    derivs = ode.atoms(sp.Derivative)
+    order = max(
+        sum(arg[1] if isinstance(arg, tuple) else 1 for arg in d.args[1:])
+        for d in derivs
+    ) if derivs else 0
+    return is_linear, order
+
+
 @router.post("/solve", response_model=DifferentialEquationResponse)
 def solve_equation(req: DifferentialEquationRequest):
     try:
@@ -52,9 +70,20 @@ def population_growth(req: PopulationGrowthRequest):
     if req.t <= 0:
         raise HTTPException(status_code=400, detail="El tiempo debe ser positivo")
 
-    k_sym = sp.symbols("k")
-    eq = sp.Eq(req.P0 * sp.exp(k_sym * req.t), req.P)
-    k = float(sp.solve(eq, k_sym)[0])
+    t, k = sp.symbols("t k")
+    P = sp.Function("P")
+    ode = sp.Eq(sp.Derivative(P(t), t), k * P(t))
+
+    is_linear, order = _classify_ode(ode, P(t))
+    general = sp.dsolve(ode, P(t))
+    particular = sp.dsolve(ode, P(t), ics={P(0): req.P0})
+    k_val = _real_solution(sp.solve(sp.Eq(particular.rhs.subs(t, req.t), req.P), k))
+    final_sol = particular.rhs.subs(k, k_val)
+
+    P_sym, C1 = sp.symbols("P C1")
+    lhs_int = sp.integrate(1 / P_sym, P_sym)
+    rhs_int = sp.integrate(k, (t,))
+
     steps: list[StepDetail] = []
 
     steps.append(StepDetail(
@@ -68,101 +97,61 @@ def population_growth(req: PopulationGrowthRequest):
             f"  • t = {req.t} (tiempo)",
             "",
             "Ecuación diferencial del modelo:",
-            "  dP/dt = k·P",
-            "",
-            "Donde:",
-            "  • dP/dt = tasa de cambio de la población",
-            "  • P = población en el tiempo t",
-            "  • k = constante de crecimiento (a determinar)",
-            "  • t = tiempo",
+            f"  {ode}",
+        ]
+    ))
+
+    lineal_str = "sí" if is_linear else "no"
+    steps.append(StepDetail(
+        title="Paso 2: Clasificación con SymPy",
+        substeps=[
+            "SymPy clasifica la EDO automáticamente:",
+            f"  • Orden: {order}",
+            f"  • ¿Es lineal?: {lineal_str}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 2: Clasificación de la ecuación diferencial",
+        title="Paso 3: Separación de variables con SymPy",
         substeps=[
-            "La ecuación dP/dt = k·P es una Ecuación Diferencial Ordinaria (EDO).",
+            "SymPy realiza la separación de variables:",
             "",
-            "Clasificación:",
-            "  • Orden: 1er orden",
-            "  • Grado: 1",
-            "  • Lineal: Sí",
-            "  • Separable: Sí",
-            "  • Homogénea: Sí",
+            "  dP/dt = k·P  →  dP/P = k·dt",
+            "",
+            "Integrando ambos lados simbólicamente:",
+            f"  ∫ 1/P dP = {lhs_int}",
+            f"  ∫ k dt  = {rhs_int}",
+            f"  {lhs_int} = {rhs_int} + C₁",
+            "",
+            "Despejando P con SymPy:",
+            f"  P(t) = {general.rhs}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 3: Resolución por variables separables",
+        title="Paso 4: Solución particular con SymPy",
         substeps=[
-            "Para resolver dP/dt = k·P, separamos las variables:",
-            "",
-            "Paso 3.1: Escribir en forma diferencial",
-            "  dP/dt = k·P",
-            "",
-            "Paso 3.2: Separar variables P y t",
-            "  Multiplicamos por dt y dividimos por P:",
-            "  dP/P = k·dt",
-            "",
-            "Paso 3.3: Integrar ambos lados",
-            "  ∫ dP/P = ∫ k·dt",
-            "",
-            "Paso 3.4: Aplicar la integral",
-            "  ln|P| = k·t + C",
-            "  Donde C es la constante de integración.",
-            "",
-            "Paso 3.5: Despejar P aplicando exponencial",
-            "  e^(ln|P|) = e^(k·t + C)",
-            "  |P| = e^C · e^(k·t)",
-            "",
-            "Paso 3.6: Simplificar (P > 0 para población)",
-            "  P(t) = C₁ · e^(k·t)",
-            "  Donde C₁ = e^C es una constante positiva.",
+            "SymPy aplica la condición inicial P(0) = P₀ usando `ics`:",
+            f"  {particular}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 4: Determinar la función P(t) y calcular k",
+        title="Paso 5: Cálculo de k con SymPy",
         substeps=[
-            "Paso 4.1: Usar la condición inicial para encontrar C₁",
-            "  En t = 0: P(0) = P₀",
+            "SymPy resuelve para k usando el segundo dato:",
+            f"  Ecuación: {sp.Eq(particular.rhs.subs(t, req.t), req.P)}",
+            f"  Solución: k = {sp.solve(sp.Eq(particular.rhs.subs(t, req.t), req.P), k)[0]}",
+            f"  k = {k_val:.6g}",
             "",
-            f"  Sustituimos t = 0 en P(t) = C₁ · e^(k·t):",
-            f"  P(0) = C₁ · e^(k·0) = C₁ · e⁰ = C₁ · 1 = C₁",
-            "",
-            f"  Como P(0) = {req.P0}:",
-            f"  C₁ = {req.P0}",
-            "",
-            "Paso 4.2: Escribir la solución particular",
-            f"  P(t) = {req.P0} · e^(k·t)",
-            "",
-            "Paso 4.3: Usar el segundo dato para encontrar k",
-            f"  En t = {req.t}: P({req.t}) = {req.P}",
-            "",
-            f"  Sustituimos en la solución particular:",
-            f"  {req.P} = {req.P0} · e^(k·{req.t})",
-            "",
-            "Paso 4.4: Despejar el término exponencial",
-            f"  e^(k·{req.t}) = {req.P} / {req.P0}",
-            f"  e^(k·{req.t}) = {req.P/req.P0:.6g}",
-            "",
-            "Paso 4.5: Aplicar logaritmo natural",
-            f"  ln(e^(k·{req.t})) = ln({req.P/req.P0:.6g})",
-            f"  k · {req.t} = {float(sp.log(req.P/req.P0)):.6g}",
-            "",
-            "Paso 4.6: Despejar k",
-            f"  k = {float(sp.log(req.P/req.P0)):.6g} / {req.t}",
-            f"  k = {k:.6g}",
-            "",
-            "Paso 4.7: Ecuación final del modelo",
-            f"  Sustituyendo k = {k:.6g}:",
-            f"  P(t) = {req.P0} · e^({k:.6g} · t)",
+            "Ecuación final del modelo:",
+            f"  P(t) = {final_sol}",
         ]
     ))
 
     return PopulationGrowthResponse(
-        k=round(k, 6),
-        solution=f"P(t) = {req.P0} · e^({k:.6g} · t)",
+        k=round(k_val, 6),
+        solution=f"P(t) = {final_sol}",
         steps=steps,
     )
 
@@ -176,10 +165,21 @@ def radioactive_decay(req: RadioactiveDecayRequest):
     if req.A2 >= req.A1:
         raise HTTPException(status_code=400, detail="A2 debe ser menor que A1 (la cantidad disminuye con el tiempo)")
 
-    k_sym = sp.symbols("k")
-    eq = sp.Eq(req.A1 * sp.exp(-k_sym * req.t), req.A2)
-    k = float(sp.solve(eq, k_sym)[0])
-    half_life = float(sp.log(2) / k)
+    t, k = sp.symbols("t k")
+    A = sp.Function("A")
+    ode = sp.Eq(sp.Derivative(A(t), t), -k * A(t))
+
+    is_linear, order = _classify_ode(ode, A(t))
+    general = sp.dsolve(ode, A(t))
+    particular = sp.dsolve(ode, A(t), ics={A(0): req.A1})
+    k_val = _real_solution(sp.solve(sp.Eq(particular.rhs.subs(t, req.t), req.A2), k))
+    final_sol = particular.rhs.subs(k, k_val)
+    half_life = float(sp.log(2) / k_val)
+
+    A_sym = sp.symbols("A")
+    lhs_int = sp.integrate(1 / A_sym, A_sym)
+    rhs_int = sp.integrate(-k, (t,))
+
     steps: list[StepDetail] = []
 
     steps.append(StepDetail(
@@ -193,130 +193,76 @@ def radioactive_decay(req: RadioactiveDecayRequest):
             f"  • t = {req.t} (tiempo)",
             "",
             "Ecuación diferencial del modelo:",
-            "  dA/dt = -k·A",
-            "",
-            "Donde:",
-            "  • dA/dt = tasa de cambio de la cantidad",
-            "  • A = cantidad en el tiempo t",
-            "  • k = constante de decaimiento (positiva)",
-            "  • El signo negativo indica que la cantidad disminuye",
-            "  • t = tiempo",
+            f"  {ode}",
+        ]
+    ))
+
+    lineal_str = "sí" if is_linear else "no"
+    steps.append(StepDetail(
+        title="Paso 2: Clasificación con SymPy",
+        substeps=[
+            "SymPy clasifica la EDO automáticamente:",
+            f"  • Orden: {order}",
+            f"  • ¿Es lineal?: {lineal_str}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 2: Clasificación de la ecuación diferencial",
+        title="Paso 3: Separación de variables con SymPy",
         substeps=[
-            "La ecuación dA/dt = -k·A es una Ecuación Diferencial Ordinaria (EDO).",
+            "SymPy realiza la separación de variables:",
             "",
-            "Clasificación:",
-            "  • Orden: 1er orden",
-            "  • Grado: 1",
-            "  • Lineal: Sí",
-            "  • Separable: Sí",
-            "  • Homogénea: Sí",
+            "  dA/dt = -k·A  →  dA/A = -k·dt",
+            "",
+            "Integrando ambos lados simbólicamente:",
+            f"  ∫ 1/A dA = {lhs_int}",
+            f"  ∫ -k dt  = {rhs_int}",
+            f"  {lhs_int} = {rhs_int} + C₁",
+            "",
+            "Despejando A con SymPy:",
+            f"  A(t) = {general.rhs}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 3: Resolución por variables separables",
+        title="Paso 4: Solución particular con SymPy",
         substeps=[
-            "Para resolver dA/dt = -k·A, separamos las variables:",
-            "",
-            "Paso 3.1: Escribir en forma diferencial",
-            "  dA/dt = -k·A",
-            "",
-            "Paso 3.2: Separar variables A y t",
-            "  Multiplicamos por dt y dividimos por A:",
-            "  dA/A = -k·dt",
-            "",
-            "Paso 3.3: Integrar ambos lados",
-            "  ∫ dA/A = ∫ -k·dt",
-            "",
-            "Paso 3.4: Aplicar la integral",
-            "  ln|A| = -k·t + C",
-            "  Donde C es la constante de integración.",
-            "",
-            "Paso 3.5: Despejar A aplicando exponencial",
-            "  e^(ln|A|) = e^(-k·t + C)",
-            "  |A| = e^C · e^(-k·t)",
-            "",
-            "Paso 3.6: Simplificar (A > 0 para sustancia)",
-            "  A(t) = C₁ · e^(-k·t)",
-            "  Donde C₁ = e^C es una constante positiva.",
+            "SymPy aplica la condición inicial A(0) = A₁ usando `ics`:",
+            f"  {particular}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 4: Determinar la función A(t) y calcular k",
+        title="Paso 5: Cálculo de k con SymPy",
         substeps=[
-            "Paso 4.1: Usar la condición inicial para encontrar C₁",
-            "  En t = 0: A(0) = A₀ = A₁",
+            "SymPy resuelve para k usando el segundo dato:",
+            f"  Ecuación: {sp.Eq(particular.rhs.subs(t, req.t), req.A2)}",
+            f"  Solución: k = {sp.solve(sp.Eq(particular.rhs.subs(t, req.t), req.A2), k)[0]}",
+            f"  k = {k_val:.6g}",
             "",
-            f"  Sustituimos t = 0 en A(t) = C₁ · e^(-k·t):",
-            f"  A(0) = C₁ · e^(-k·0) = C₁ · e⁰ = C₁ · 1 = C₁",
-            "",
-            f"  Como A(0) = {req.A1}:",
-            f"  C₁ = {req.A1}",
-            "",
-            "Paso 4.2: Escribir la solución particular",
-            f"  A(t) = {req.A1} · e^(-k·t)",
-            "",
-            "Paso 4.3: Usar el segundo dato para encontrar k",
-            f"  En t = {req.t}: A({req.t}) = {req.A2}",
-            "",
-            f"  Sustituimos en la solución particular:",
-            f"  {req.A2} = {req.A1} · e^(-k·{req.t})",
-            "",
-            "Paso 4.4: Despejar el término exponencial",
-            f"  e^(-k·{req.t}) = {req.A2} / {req.A1}",
-            f"  e^(-k·{req.t}) = {req.A2/req.A1:.6g}",
-            "",
-            "Paso 4.5: Aplicar logaritmo natural",
-            f"  ln(e^(-k·{req.t})) = ln({req.A2/req.A1:.6g})",
-            f"  -k · {req.t} = {float(sp.log(req.A2/req.A1)):.6g}",
-            "",
-            "Paso 4.6: Despejar k",
-            f"  k = -{float(sp.log(req.A2/req.A1)):.6g} / {req.t}",
-            f"  k = {k:.6g}",
-            "",
-            "Paso 4.7: Ecuación final del modelo",
-            f"  Sustituyendo k = {k:.6g}:",
-            f"  A(t) = {req.A1} · e^(-{k:.6g} · t)",
+            "Ecuación final del modelo:",
+            f"  A(t) = {final_sol}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 5: Cálculo de la vida media (T₁/₂)",
+        title="Paso 6: Cálculo de la vida media (T₁/₂) con SymPy",
         substeps=[
-            "La vida media es el tiempo necesario para que la cantidad se reduzca a la mitad.",
-            "  A(T₁/₂) = A₀ / 2",
+            "La vida media cumple: A(T₁/₂) = A₀ / 2",
             "",
-            "Paso 5.1: Plantear la ecuación",
-            f"  {req.A1} · e^(-k · T₁/₂) = {req.A1} / 2",
-            "",
-            "Paso 5.2: Simplificar",
-            "  e^(-k · T₁/₂) = 1/2",
-            "",
-            "Paso 5.3: Aplicar logaritmo natural",
-            "  ln(e^(-k · T₁/₂)) = ln(1/2)",
-            "  -k · T₁/₂ = -ln(2)",
-            "",
-            "Paso 5.4: Despejar T₁/₂",
-            "  T₁/₂ = ln(2) / k",
-            "",
-            f"Paso 5.5: Sustituir k = {k:.6g}",
-            f"  T₁/₂ = ln(2) / {k:.6g}",
-            f"  T₁/₂ = {half_life:.4f}",
-            "",
-            f"La vida media es de {half_life:.4f} horas.",
+            "SymPy resuelve simbólicamente:",
+            f"  {sp.Eq(final_sol.subs(t, sp.Symbol('T')), req.A1 / 2)}",
+            "  e^(-k·T₁/₂) = 1/2",
+            "  -k · T₁/₂ = ln(1/2) = -ln(2)",
+            f"  T₁/₂ = ln(2) / {k_val:.6g}",
+            f"  T₁/₂ = {half_life:.4f} horas",
         ]
     ))
 
     return RadioactiveDecayResponse(
-        k=round(k, 6),
+        k=round(k_val, 6),
         half_life=round(half_life, 4),
-        solution=f"A(t) = {req.A1} · e^(-{k:.6g} · t)",
+        solution=f"A(t) = {final_sol}",
         steps=steps,
     )
 
@@ -328,23 +274,26 @@ def c14_dating(req: C14DatingRequest):
     if req.N >= req.N0:
         raise HTTPException(status_code=400, detail="N debe ser menor que N₀ (la cantidad disminuye con el tiempo)")
 
-    def ratio_fraction(num: float, den: float) -> str | None:
-        from math import gcd
-        n, d = round(num), round(den)
-        if d == 0 or n == 0:
-            return None
-        g = gcd(n, d)
-        nn, dd = n // g, d // g
-        return f"{nn}/{dd}" if dd > 1 else None
+    import math
+    HALF_LIFE_C14 = 5730
+    k_val = math.log(2) / HALF_LIFE_C14
 
-    HALF_LIFE_C14 = 5730.0
-    k = float(sp.log(2) / HALF_LIFE_C14)
+    t, k = sp.symbols("t k")
+    N = sp.Function("N")
+    ode = sp.Eq(sp.Derivative(N(t), t), -k * N(t))
+
+    is_linear, order = _classify_ode(ode, N(t))
+    general = sp.dsolve(ode, N(t))
+    particular = sp.dsolve(ode, N(t), ics={N(0): req.N0})
+
+    particular_known = particular.subs(k, sp.log(2) / HALF_LIFE_C14)
+    age = _real_solution(sp.solve(sp.Eq(particular_known.rhs, req.N), t))
+
     ratio = req.N / req.N0
-    frac = ratio_fraction(req.N, req.N0)
-    steps: list[StepDetail] = []
+    n_half = round(math.log(req.N0 / req.N) / math.log(2))
+    is_power_of_half = abs(math.log(ratio, 0.5) - round(math.log(ratio, 0.5))) < 1e-9
 
-    n_half = round(float(sp.log(req.N0 / req.N) / sp.log(2)))
-    is_power_of_half = abs((0.5) ** n_half - ratio) < 1e-9
+    steps: list[StepDetail] = []
 
     steps.append(StepDetail(
         title="Paso 1: Identificación del problema y planteamiento",
@@ -355,86 +304,68 @@ def c14_dating(req: C14DatingRequest):
             f"  • N₀ = {req.N0}% (concentración inicial de ¹⁴C)",
             f"  • N = {req.N}% (concentración actual de ¹⁴C en la muestra)",
             "",
-            *([f"Convertimos el porcentaje a fraccionario:",
-              f"  {req.N}% = {frac}"] if frac else []),
+            f"Semivida del ¹⁴C: {HALF_LIFE_C14} años",
             "",
-            "Ecuación del modelo:",
-            "  dN/dt = -k·N",
-            "  N = N₀ · (1/2)^(t/5730)",
+            "Ecuación diferencial del modelo:",
+            f"  dN/dt = -k·N   con k = ln(2)/{HALF_LIFE_C14}",
         ]
     ))
 
-    if is_power_of_half and frac:
+    lineal_str = "sí" if is_linear else "no"
+    steps.append(StepDetail(
+        title="Paso 2: Clasificación con SymPy",
+        substeps=[
+            "SymPy clasifica la EDO automáticamente:",
+            f"  • Orden: {order}",
+            f"  • ¿Es lineal?: {lineal_str}",
+        ]
+    ))
+
+    steps.append(StepDetail(
+        title="Paso 3: Solución general con SymPy",
+        substeps=[
+            "SymPy resuelve la EDO simbólicamente:",
+            f"  {general}",
+            "",
+            "Sustituimos k por su valor conocido:",
+            f"  k = ln(2) / {HALF_LIFE_C14} = {k_val:.8g}",
+        ]
+    ))
+
+    steps.append(StepDetail(
+        title="Paso 4: Solución particular con SymPy",
+        substeps=[
+            "SymPy aplica la condición inicial N(0) = N₀:",
+            f"  N(t) = {particular_known.rhs}",
+        ]
+    ))
+
+    if is_power_of_half:
         steps.append(StepDetail(
-            title="Paso 2: Sustituir los valores conocidos",
+            title="Paso 5: Cálculo de la edad con SymPy",
             substeps=[
-                f"  N = N₀ · (1/2)^(t/5730)",
+                "SymPy resuelve la ecuación N(t) = N% actual:",
+                f"  Ecuación: {sp.Eq(particular_known.rhs, req.N)}",
+                f"  (N es exactamente N₀ / 2^{n_half})",
                 "",
-                f"Sustituimos N = N₀ · {frac}:",
-                f"  N₀ · {frac} = N₀ · (1/2)^(t/5730)",
-                "",
-                "Cancelamos N₀ en ambos lados:",
-                f"  {frac} = (1/2)^(t/5730)",
+                f"  t = {n_half} · {HALF_LIFE_C14} = {age:.2f} años",
             ]
         ))
-
-        steps.append(StepDetail(
-            title="Paso 3: Igualar exponentes",
-            substeps=[
-                f"  {frac} = (1/2)^(t/5730)",
-                "",
-                f"Expresamos {frac} como potencia de 1/2:",
-                f"  (1/2)^{n_half} = (1/2)^(t/5730)",
-                "",
-                "Igualamos exponentes:",
-                f"  {n_half} = t / 5730",
-            ]
-        ))
-
-        steps.append(StepDetail(
-            title="Paso 4: Despejar t",
-            substeps=[
-                f"  t / 5730 = {n_half}",
-                f"  t = {n_half} · 5730",
-                f"  t = {n_half * 5730} años",
-            ]
-        ))
-
-        age = n_half * 5730.0
     else:
-        age = float(-sp.log(req.N / req.N0) / k)
         steps.append(StepDetail(
-            title="Paso 2: Sustituir los valores conocidos",
+            title="Paso 5: Cálculo de la edad con SymPy",
             substeps=[
-                f"  N = {req.N0} · (1/2)^(t/5730)",
+                "SymPy resuelve la ecuación N(t) = N% actual:",
+                f"  Ecuación: {sp.Eq(particular_known.rhs, req.N)}",
                 "",
-                f"Sustituimos N = {req.N} y N₀ = {req.N0}:",
-                f"  {req.N} = {req.N0} · (1/2)^(t/5730)",
-                "",
-                "Dividimos ambos lados por N₀:",
-                f"  {frac if frac else f'{ratio:.4g}'} = (1/2)^(t/5730)",
-            ]
-        ))
-
-        steps.append(StepDetail(
-            title="Paso 3: Aplicar logaritmo para despejar t",
-            substeps=[
-                f"  ln({frac if frac else f'{ratio:.4g}'}) = ln((1/2)^(t/5730))",
-                "",
-                "Aplicamos propiedad del logaritmo:",
-                f"  ln({frac if frac else f'{ratio:.4g}'}) = (t/5730) · ln(1/2)",
-                f"  ln({frac if frac else f'{ratio:.4g}'}) = (t/5730) · (-ln|2|)",
-                "",
-                "Despejamos t:",
-                f"  t = -5730 · ln({frac if frac else f'{ratio:.4g}'}) / ln|2|",
                 f"  t = {age:.2f} años",
             ]
         ))
 
     return C14DatingResponse(
-        k=round(k, 8),
+        k=round(k_val, 8),
         age=round(age, 2),
-        solution=f"N = {req.N0} · (1/2)^(t/5730)",
+        solution=f"N(t) = {req.N0} · e^(-{k_val:.8g} · t)",
         steps=steps,
     )
 
@@ -446,9 +377,21 @@ def newton_cooling(req: NewtonCoolingRequest):
     if req.t <= 0:
         raise HTTPException(status_code=400, detail="El tiempo debe ser positivo")
 
-    k_sym = sp.symbols("k")
-    eq = sp.Eq(req.Tm + (req.T0 - req.Tm) * sp.exp(k_sym * req.t), req.T)
-    k = float(sp.solve(eq, k_sym)[0])
+    t, k = sp.symbols("t k")
+    T = sp.Function("T")
+    Tm = sp.symbols("Tm")
+    ode = sp.Eq(sp.Derivative(T(t), t), k * (T(t) - Tm))
+
+    is_linear, order = _classify_ode(ode, T(t))
+    general = sp.dsolve(ode, T(t))
+    particular = sp.dsolve(ode, T(t), ics={T(0): req.T0}).subs(Tm, req.Tm)
+    k_val = _real_solution(sp.solve(sp.Eq(particular.rhs.subs(t, req.t), req.T), k))
+    final_sol = particular.rhs.subs(k, k_val)
+
+    T_sym, C1 = sp.symbols("T C1")
+    lhs_int = sp.integrate(1 / (T_sym - Tm), (T_sym,))
+    rhs_int = sp.integrate(k, (t,))
+
     steps: list[StepDetail] = []
 
     steps.append(StepDetail(
@@ -463,105 +406,60 @@ def newton_cooling(req: NewtonCoolingRequest):
             f"  • t = {req.t} (tiempo)",
             "",
             "Ecuación diferencial del modelo:",
-            "  dT/dt = k·(T - Tₘ)",
-            "",
-            "Donde:",
-            "  • dT/dt = tasa de cambio de la temperatura",
-            "  • T = temperatura en el tiempo t",
-            "  • Tₘ = temperatura ambiente",
-            "  • k = constante de proporcionalidad",
-            f"  • Si T₀ > Tₘ, k será negativo (enfriamiento)",
-            f"  • Si T₀ < Tₘ, k será positivo (calentamiento)",
+            f"  dT/dt = k·(T - {req.Tm})",
+        ]
+    ))
+
+    lineal_str = "sí" if is_linear else "no"
+    steps.append(StepDetail(
+        title="Paso 2: Clasificación con SymPy",
+        substeps=[
+            "SymPy clasifica la EDO automáticamente:",
+            f"  • Orden: {order}",
+            f"  • ¿Es lineal?: {lineal_str}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 2: Clasificación de la ecuación diferencial",
+        title="Paso 3: Separación de variables con SymPy",
         substeps=[
-            "La ecuación dT/dt = k·(T - Tₘ) es una Ecuación Diferencial Ordinaria (EDO).",
+            "SymPy realiza la separación de variables:",
             "",
-            "Clasificación:",
-            "  • Orden: 1er orden",
-            "  • Grado: 1",
-            "  • Lineal: Sí",
-            "  • Separable: Sí",
-            "  • Homogénea: No (por el término -k·Tₘ)",
+            "  dT/dt = k·(T - Tₘ)  →  dT/(T - Tₘ) = k·dt",
+            "",
+            "Integrando ambos lados simbólicamente:",
+            f"  ∫ 1/(T - Tₘ) dT = {lhs_int}",
+            f"  ∫ k dt  = {rhs_int}",
+            f"  {lhs_int} = {rhs_int} + C₁",
+            "",
+            "Despejando T con SymPy:",
+            f"  {general}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 3: Resolución por variables separables",
+        title="Paso 4: Solución particular con SymPy",
         substeps=[
-            "Para resolver dT/dt = k·(T - Tₘ), separamos las variables:",
-            "",
-            "Paso 3.1: Escribir en forma diferencial",
-            "  dT/dt = k·(T - Tₘ)",
-            "",
-            "Paso 3.2: Separar variables T y t",
-            "  Multiplicamos por dt y dividimos por (T - Tₘ):",
-            "  dT/(T - Tₘ) = k·dt",
-            "",
-            "Paso 3.3: Integrar ambos lados",
-            "  ∫ dT/(T - Tₘ) = ∫ k·dt",
-            "",
-            "Paso 3.4: Aplicar la integral",
-            "  ln|T - Tₘ| = k·t + C",
-            "  Donde C es la constante de integración.",
-            "",
-            "Paso 3.5: Despejar (T - Tₘ) aplicando exponencial",
-            "  e^(ln|T - Tₘ|) = e^(k·t + C)",
-            "  |T - Tₘ| = e^C · e^(k·t)",
-            "",
-            "Paso 3.6: Simplificar",
-            "  T - Tₘ = C₁ · e^(k·t)",
-            "  T(t) = Tₘ + C₁ · e^(k·t)",
-            "  Donde C₁ = ±e^C es una constante.",
+            "SymPy aplica la condición inicial T(0) = T₀ usando `ics`:",
+            f"  T(t) = {particular.rhs}",
         ]
     ))
 
     steps.append(StepDetail(
-        title="Paso 4: Determinar la función T(t) y calcular k",
+        title="Paso 5: Cálculo de k con SymPy",
         substeps=[
-            "Paso 4.1: Usar la condición inicial para encontrar C₁",
-            "  En t = 0: T(0) = T₀",
+            "SymPy resuelve para k usando el segundo dato:",
+            f"  Ecuación: {sp.Eq(particular.rhs.subs(t, req.t), req.T)}",
+            f"  Solución: k = {sp.solve(sp.Eq(particular.rhs.subs(t, req.t), req.T), k)[0]}",
+            f"  k = {k_val:.6g}",
             "",
-            f"  Sustituimos t = 0 en T(t) = {req.Tm} + C₁ · e^(k·t):",
-            f"  T(0) = {req.Tm} + C₁ · e^(k·0) = {req.Tm} + C₁ · e⁰ = {req.Tm} + C₁",
-            "",
-            f"  Como T(0) = {req.T0}:",
-            f"  {req.Tm} + C₁ = {req.T0}",
-            f"  C₁ = {req.T0} - {req.Tm} = {req.T0 - req.Tm}",
-            "",
-            "Paso 4.2: Escribir la solución particular",
-            f"  T(t) = {req.Tm} + ({req.T0 - req.Tm}) · e^(k·t)",
-            "",
-            "Paso 4.3: Usar el segundo dato para encontrar k",
-            f"  En t = {req.t}: T({req.t}) = {req.T}",
-            "",
-            f"  Sustituimos en la solución particular:",
-            f"  {req.T} = {req.Tm} + ({req.T0 - req.Tm}) · e^(k·{req.t})",
-            "",
-            "Paso 4.4: Despejar el término exponencial",
-            f"  ({req.T0 - req.Tm}) · e^(k·{req.t}) = {req.T} - {req.Tm}",
-            f"  e^(k·{req.t}) = ({req.T} - {req.Tm}) / ({req.T0} - {req.Tm})",
-            f"  e^(k·{req.t}) = {(req.T - req.Tm)/(req.T0 - req.Tm):.6g}",
-            "",
-            "Paso 4.5: Aplicar logaritmo natural",
-            f"  ln(e^(k·{req.t})) = ln({(req.T - req.Tm)/(req.T0 - req.Tm):.6g})",
-            f"  k · {req.t} = {float(sp.log((req.T - req.Tm)/(req.T0 - req.Tm))):.6g}",
-            "",
-            "Paso 4.6: Despejar k",
-            f"  k = {float(sp.log((req.T - req.Tm)/(req.T0 - req.Tm))):.6g} / {req.t}",
-            f"  k = {k:.6g}",
-            "",
-            "Paso 4.7: Ecuación final del modelo",
-            f"  Sustituyendo k = {k:.6g}:",
-            f"  T(t) = {req.Tm} + ({req.T0 - req.Tm}) · e^({k:.6g} · t)",
+            "Ecuación final del modelo:",
+            f"  T(t) = {final_sol}",
         ]
     ))
 
     return NewtonCoolingResponse(
-        k=round(k, 6),
-        solution=f"T(t) = {req.Tm} + ({req.T0 - req.Tm}) · e^({k:.6g} · t)",
+        k=round(k_val, 6),
+        solution=f"T(t) = {final_sol}",
         steps=steps,
     )
