@@ -1,8 +1,10 @@
 import axios from "axios";
 import type { EquationRequest, EquationResponse, PopulationGrowthRequest, PopulationGrowthResponse, RadioactiveDecayRequest, RadioactiveDecayResponse, C14DatingRequest, C14DatingResponse, NewtonCoolingRequest, NewtonCoolingResponse } from "../types/equation";
 
+const apiBaseUrl = (import.meta.env.VITE_API_URL ?? "/api/v1").replace(/\/$/, "");
+
 const api = axios.create({
-  baseURL: "/api/v1",
+  baseURL: apiBaseUrl,
   headers: { "Content-Type": "application/json" },
 });
 

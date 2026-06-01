@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from app.models.schemas import (
     DifferentialEquationRequest,
     DifferentialEquationResponse,
+    ExpressionValidationRequest,
     PopulationGrowthRequest,
     PopulationGrowthResponse,
     RadioactiveDecayRequest,
@@ -16,7 +17,6 @@ from app.models.schemas import (
 )
 from app.services.ode_solver import solve_differential_equation
 import sympy as sp
-import re
 
 router = APIRouter(prefix="/equations", tags=["Equations"])
 
@@ -37,9 +37,9 @@ def solve_equation(req: DifferentialEquationRequest):
 
 
 @router.post("/validate")
-def validate_expression(expression: str):
+def validate_expression(req: ExpressionValidationRequest):
     try:
-        sp.sympify(expression)
+        sp.sympify(req.expression)
         return {"valid": True}
     except (sp.SympifyError, ValueError):
         return {"valid": False}

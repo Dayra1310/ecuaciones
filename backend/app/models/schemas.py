@@ -12,6 +12,10 @@ class DifferentialEquationRequest(BaseModel):
     variable: str = "x"
 
 
+class ExpressionValidationRequest(BaseModel):
+    expression: str
+
+
 class DifferentialEquationResponse(BaseModel):
     exact: bool
     solution: str | None = None

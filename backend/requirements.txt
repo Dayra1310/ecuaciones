@@ -2,4 +2,4 @@ fastapi
 uvicorn[standard]
 sympy
 numpy
-pydantic>=2.14.0a1
+pydantic>=2,<3
