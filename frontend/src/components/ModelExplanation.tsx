@@ -160,37 +160,6 @@ const modelData: Record<string, ModelData> = {
     ],
     solution: "N(t) = N₀ · (1/2)^(t/5730)",
   },
-  exactas: {
-    title: "Ecuaciones Exactas",
-    subtitle: "M(x,y) dx + N(x,y) dy = 0",
-    paragraphs: [
-      "Una ecuación diferencial de la forma M(x,y) dx + N(x,y) dy = 0 se llama exacta cuando existe una función F(x,y) tal que su diferencial total dF = (∂F/∂x)dx + (∂F/∂y)dy coincide con M dx + N dy. Es decir, ∂F/∂x = M y ∂F/∂y = N.",
-      "El criterio de exactitud es simple: la ecuación es exacta si y solo si My = Nx. Cuando esto se cumple, la solución está dada implícitamente por F(x,y) = C, donde C es una constante.",
-    ],
-    steps: [
-      {
-        title: "1. Identificar las derivadas parciales de x y y",
-        content: "Dada la ecuación M dx + N dy = 0, identificamos:\n  M(x,y) = coeficiente de dx\n  N(x,y) = coeficiente de dy\n\nCalculamos las derivadas parciales:\n  My = ∂M/∂y (derivada parcial de M respecto a y)\n  Nx = ∂N/∂x (derivada parcial de N respecto a x)",
-      },
-      {
-        title: "2. Verificar si es exacta: My = Nx",
-        content: "Si My = Nx, la ecuación es EXACTA y podemos resolverla.\n\nSi My ≠ Nx, la ecuación no es exacta y no se puede resolver con este método.",
-      },
-      {
-        title: "3. Encontrar F(x,y) integrando M respecto a x",
-        content: "F(x,y) = ∫ M(x,y) dx + g(y)\n\ndonde g(y) es una función desconocida de y (la constante de integración depende de y porque integramos respecto a x).",
-      },
-      {
-        title: "4. Determinar g(y)",
-        content: "Sabemos que F(x,y) = ∫ M(x,y) dx + g(y). Derivamos respecto a y e igualamos a N:\n\n  N(x,y) = d/dy ∫ M(x,y) dx + g'(y)\n\nDespejamos g'(y):\n\n  g'(y) = N(x,y) - d/dy ∫ M(x,y) dx\n\nIntegramos para hallar g(y):\n\n  g(y) = ∫ ( N(x,y) - d/dy ∫ M(x,y) dx ) dy",
-      },
-      {
-        title: "5. Remplazar g(y) en F(x,y)",
-        content: "Sustituimos g(y) en la expresión de F(x,y):\n\n  F(x,y) = ∫ M(x,y) dx + ∫ ( N(x,y) - d/dy ∫ M(x,y) dx ) dy\n\nY escribimos la solución general implícita como:\n\n  F(x,y) = C",
-      },
-    ],
-    solution: "F(x,y) = C",
-  },
 };
 
 export function ModelExplanation({ option, onContinue, onBack }: Props) {

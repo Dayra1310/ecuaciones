@@ -1,7 +1,7 @@
-import { crecimientoEjercicios } from "./crecimientoEjercicios";
-import { decaimientoEjercicios } from "./decaimientoEjercicios";
-import { newtonEjercicios } from "./newtonEjercicios";
-import { c14Ejercicios } from "./c14Ejercicios";
+import { crecimientoEjercicios, type CrecimientoEjercicio } from "./crecimientoEjercicios";
+import { decaimientoEjercicios, type DecaimientoEjercicio } from "./decaimientoEjercicios";
+import { newtonEjercicios, type NewtonEjercicio } from "./newtonEjercicios";
+import { c14Ejercicios, type C14Ejercicio } from "./c14Ejercicios";
 
 export interface QuizExercise {
   tipo: "crecimiento" | "decaimiento" | "newton" | "c14";
@@ -10,6 +10,12 @@ export interface QuizExercise {
   valorProyectado: number;
   datos: { label: string; valor: string }[];
 }
+
+type QuizSource =
+  | { tipo: "crecimiento"; ej: CrecimientoEjercicio }
+  | { tipo: "decaimiento"; ej: DecaimientoEjercicio }
+  | { tipo: "newton"; ej: NewtonEjercicio }
+  | { tipo: "c14"; ej: C14Ejercicio };
 
 function computeCrecimiento(P0: number, P: number, t: number, t2: number): { k: number; proyeccion: number } {
   const k = Math.log(P / P0) / t;
@@ -38,7 +44,7 @@ function getRandomFrom<T>(arr: T[], count: number): T[] {
 }
 
 export function generarQuiz(cantidad: number = 5): QuizExercise[] {
-  const todos: { tipo: "crecimiento" | "decaimiento" | "newton" | "c14"; ej: any }[] = [
+  const todos: QuizSource[] = [
     ...crecimientoEjercicios.map((ej) => ({ tipo: "crecimiento" as const, ej })),
     ...decaimientoEjercicios.map((ej) => ({ tipo: "decaimiento" as const, ej })),
     ...newtonEjercicios.map((ej) => ({ tipo: "newton" as const, ej })),

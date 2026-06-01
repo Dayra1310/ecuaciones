@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface Props {
   onSolve: (M: string, N: string) => void;
@@ -17,11 +17,6 @@ function preprocessExpr(s: string): string {
 export function EquationForm({ onSolve, isLoading, initialM = "", initialN = "", title }: Props) {
   const [M, setM] = useState(initialM);
   const [N, setN] = useState(initialN);
-
-  useEffect(() => {
-    setM(initialM);
-    setN(initialN);
-  }, [initialM, initialN]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -47,14 +47,14 @@ def validate_expression(req: ExpressionValidationRequest):
 
 @router.post("/population-growth", response_model=PopulationGrowthResponse)
 def population_growth(req: PopulationGrowthRequest):
-    from math import log, exp
-
     if req.P0 <= 0 or req.P <= 0:
         raise HTTPException(status_code=400, detail="P0 y P deben ser positivos")
     if req.t <= 0:
         raise HTTPException(status_code=400, detail="El tiempo debe ser positivo")
 
-    k = log(req.P / req.P0) / req.t
+    k_sym = sp.symbols("k")
+    eq = sp.Eq(req.P0 * sp.exp(k_sym * req.t), req.P)
+    k = float(sp.solve(eq, k_sym)[0])
     steps: list[StepDetail] = []
 
     steps.append(StepDetail(
@@ -148,10 +148,10 @@ def population_growth(req: PopulationGrowthRequest):
             "",
             "Paso 4.5: Aplicar logaritmo natural",
             f"  ln(e^(k·{req.t})) = ln({req.P/req.P0:.6g})",
-            f"  k · {req.t} = {log(req.P/req.P0):.6g}",
+            f"  k · {req.t} = {float(sp.log(req.P/req.P0)):.6g}",
             "",
             "Paso 4.6: Despejar k",
-            f"  k = {log(req.P/req.P0):.6g} / {req.t}",
+            f"  k = {float(sp.log(req.P/req.P0)):.6g} / {req.t}",
             f"  k = {k:.6g}",
             "",
             "Paso 4.7: Ecuación final del modelo",
@@ -169,8 +169,6 @@ def population_growth(req: PopulationGrowthRequest):
 
 @router.post("/radioactive-decay", response_model=RadioactiveDecayResponse)
 def radioactive_decay(req: RadioactiveDecayRequest):
-    from math import log
-
     if req.A1 <= 0 or req.A2 <= 0:
         raise HTTPException(status_code=400, detail="A1 y A2 deben ser positivos")
     if req.t <= 0:
@@ -178,8 +176,10 @@ def radioactive_decay(req: RadioactiveDecayRequest):
     if req.A2 >= req.A1:
         raise HTTPException(status_code=400, detail="A2 debe ser menor que A1 (la cantidad disminuye con el tiempo)")
 
-    k = log(req.A1 / req.A2) / req.t
-    half_life = log(2) / k
+    k_sym = sp.symbols("k")
+    eq = sp.Eq(req.A1 * sp.exp(-k_sym * req.t), req.A2)
+    k = float(sp.solve(eq, k_sym)[0])
+    half_life = float(sp.log(2) / k)
     steps: list[StepDetail] = []
 
     steps.append(StepDetail(
@@ -274,10 +274,10 @@ def radioactive_decay(req: RadioactiveDecayRequest):
             "",
             "Paso 4.5: Aplicar logaritmo natural",
             f"  ln(e^(-k·{req.t})) = ln({req.A2/req.A1:.6g})",
-            f"  -k · {req.t} = {log(req.A2/req.A1):.6g}",
+            f"  -k · {req.t} = {float(sp.log(req.A2/req.A1)):.6g}",
             "",
             "Paso 4.6: Despejar k",
-            f"  k = -{log(req.A2/req.A1):.6g} / {req.t}",
+            f"  k = -{float(sp.log(req.A2/req.A1)):.6g} / {req.t}",
             f"  k = {k:.6g}",
             "",
             "Paso 4.7: Ecuación final del modelo",
@@ -323,14 +323,13 @@ def radioactive_decay(req: RadioactiveDecayRequest):
 
 @router.post("/c14-dating", response_model=C14DatingResponse)
 def c14_dating(req: C14DatingRequest):
-    from math import log, gcd
-
     if req.N0 <= 0 or req.N <= 0:
         raise HTTPException(status_code=400, detail="N₀ y N deben ser positivos")
     if req.N >= req.N0:
         raise HTTPException(status_code=400, detail="N debe ser menor que N₀ (la cantidad disminuye con el tiempo)")
 
     def ratio_fraction(num: float, den: float) -> str | None:
+        from math import gcd
         n, d = round(num), round(den)
         if d == 0 or n == 0:
             return None
@@ -339,12 +338,12 @@ def c14_dating(req: C14DatingRequest):
         return f"{nn}/{dd}" if dd > 1 else None
 
     HALF_LIFE_C14 = 5730.0
-    k = log(2) / HALF_LIFE_C14
+    k = float(sp.log(2) / HALF_LIFE_C14)
     ratio = req.N / req.N0
     frac = ratio_fraction(req.N, req.N0)
     steps: list[StepDetail] = []
 
-    n_half = round(log(req.N0 / req.N) / log(2))
+    n_half = round(float(sp.log(req.N0 / req.N) / sp.log(2)))
     is_power_of_half = abs((0.5) ** n_half - ratio) < 1e-9
 
     steps.append(StepDetail(
@@ -403,7 +402,7 @@ def c14_dating(req: C14DatingRequest):
 
         age = n_half * 5730.0
     else:
-        age = -log(req.N / req.N0) / k
+        age = float(-sp.log(req.N / req.N0) / k)
         steps.append(StepDetail(
             title="Paso 2: Sustituir los valores conocidos",
             substeps=[
@@ -442,14 +441,14 @@ def c14_dating(req: C14DatingRequest):
 
 @router.post("/newton-cooling", response_model=NewtonCoolingResponse)
 def newton_cooling(req: NewtonCoolingRequest):
-    from math import log
-
     if req.T0 == req.Tm:
         raise HTTPException(status_code=400, detail="La temperatura inicial no puede ser igual a la ambiente")
     if req.t <= 0:
         raise HTTPException(status_code=400, detail="El tiempo debe ser positivo")
 
-    k = log((req.T - req.Tm) / (req.T0 - req.Tm)) / req.t
+    k_sym = sp.symbols("k")
+    eq = sp.Eq(req.Tm + (req.T0 - req.Tm) * sp.exp(k_sym * req.t), req.T)
+    k = float(sp.solve(eq, k_sym)[0])
     steps: list[StepDetail] = []
 
     steps.append(StepDetail(
@@ -549,10 +548,10 @@ def newton_cooling(req: NewtonCoolingRequest):
             "",
             "Paso 4.5: Aplicar logaritmo natural",
             f"  ln(e^(k·{req.t})) = ln({(req.T - req.Tm)/(req.T0 - req.Tm):.6g})",
-            f"  k · {req.t} = {log((req.T - req.Tm)/(req.T0 - req.Tm)):.6g}",
+            f"  k · {req.t} = {float(sp.log((req.T - req.Tm)/(req.T0 - req.Tm))):.6g}",
             "",
             "Paso 4.6: Despejar k",
-            f"  k = {log((req.T - req.Tm)/(req.T0 - req.Tm)):.6g} / {req.t}",
+            f"  k = {float(sp.log((req.T - req.Tm)/(req.T0 - req.Tm))):.6g} / {req.t}",
             f"  k = {k:.6g}",
             "",
             "Paso 4.7: Ecuación final del modelo",

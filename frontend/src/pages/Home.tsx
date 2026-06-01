@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { EquationForm } from "../components/EquationForm";
 import { EquationMenu } from "../components/EquationMenu";
 import type { EquationOption } from "../components/EquationMenu";
 import { ModelExplanation } from "../components/ModelExplanation";
@@ -11,16 +10,14 @@ import { NewtonForm } from "../components/NewtonForm";
 import { NewtonResult } from "../components/NewtonResult";
 import { C14Form } from "../components/C14Form";
 import { C14Result } from "../components/C14Result";
-import { ResultCard } from "../components/ResultCard";
 import { Quiz } from "../components/Quiz";
 import { Quiz2 } from "../components/Quiz2";
 import { SympyPanel } from "../components/SympyPanel";
-import { useSolveEquation } from "../hooks/useSolveEquation";
 import { usePopulationGrowth } from "../hooks/usePopulationGrowth";
 import { useRadioactiveDecay } from "../hooks/useRadioactiveDecay";
 import { useNewtonCooling } from "../hooks/useNewtonCooling";
 import { useC14Dating } from "../hooks/useC14Dating";
-import type { EquationResponse, PopulationGrowthResponse, RadioactiveDecayResponse, NewtonCoolingResponse, C14DatingResponse } from "../types/equation";
+import type { PopulationGrowthResponse, RadioactiveDecayResponse, NewtonCoolingResponse, C14DatingResponse } from "../types/equation";
 
 const options: EquationOption[] = [
   {
@@ -62,13 +59,11 @@ const options: EquationOption[] = [
 ];
 
 export function Home() {
-  const mutation = useSolveEquation();
   const popMutation = usePopulationGrowth();
   const decayMutation = useRadioactiveDecay();
   const newtonMutation = useNewtonCooling();
   const c14Mutation = useC14Dating();
 
-  const [result, setResult] = useState<EquationResponse | null>(null);
   const [popResult, setPopResult] = useState<PopulationGrowthResponse | null>(null);
   const [decayResult, setDecayResult] = useState<RadioactiveDecayResponse | null>(null);
   const [newtonResult, setNewtonResult] = useState<NewtonCoolingResponse | null>(null);
@@ -89,24 +84,13 @@ export function Home() {
   const handleSelect = (opt: EquationOption) => {
     setSelected(opt);
     setShowExplanation(true);
-    setResult(null);
     setPopResult(null);
     setDecayResult(null);
     setNewtonResult(null);
+    setC14Result(null);
     setPopAtT2(null);
     setNewtonAtT2(null);
     setError(null);
-  };
-
-  const handleSolve = (M: string, N: string) => {
-    setError(null);
-    mutation.mutate(
-      { M, N, variable: "x" },
-      {
-        onSuccess: (data) => setResult(data),
-        onError: (err) => setError(err.message),
-      }
-    );
   };
 
   const handlePopulationSolve = (P0: number, P: number, t: number, t2: number) => {
@@ -166,7 +150,6 @@ export function Home() {
   const handleBack = () => {
     setSelected(null);
     setShowExplanation(true);
-    setResult(null);
     setPopResult(null);
     setDecayResult(null);
     setNewtonResult(null);
@@ -295,19 +278,11 @@ export function Home() {
             defaultTFinal="50"
             defaultT2="20"
           />
-        ) : selected.id === "c14" ? (
+        ) : (
           <C14Form
             onSolve={handleC14Solve}
             isLoading={c14Mutation.isPending}
             defaultN="25"
-          />
-        ) : (
-          <EquationForm
-            onSolve={handleSolve}
-            isLoading={mutation.isPending}
-            initialM={selected.M}
-            initialN={selected.N}
-            title={selected.title}
           />
         )}
         <div className="output">
@@ -316,8 +291,7 @@ export function Home() {
           {decayResult && <DecayResult result={decayResult} />}
           {newtonResult && <NewtonResult result={newtonResult} Tm={newtonParams.Tm} T0={newtonParams.T0} t2={newtonT2} tempAtT2={newtonAtT2} />}
           {c14Result && <C14Result result={c14Result} />}
-          {result && <ResultCard result={result} />}
-          {!result && !popResult && !decayResult && !newtonResult && !c14Result && !error && (
+          {!popResult && !decayResult && !newtonResult && !c14Result && !error && (
             <div className="placeholder">Completa los datos y presiona "Resolver" para ver la solución</div>
           )}
         </div>

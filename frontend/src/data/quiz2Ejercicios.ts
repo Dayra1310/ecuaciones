@@ -1,7 +1,7 @@
-import { crecimientoEjercicios } from "./crecimientoEjercicios";
-import { decaimientoEjercicios } from "./decaimientoEjercicios";
-import { newtonEjercicios } from "./newtonEjercicios";
-import { c14Ejercicios } from "./c14Ejercicios";
+import { crecimientoEjercicios, type CrecimientoEjercicio } from "./crecimientoEjercicios";
+import { decaimientoEjercicios, type DecaimientoEjercicio } from "./decaimientoEjercicios";
+import { newtonEjercicios, type NewtonEjercicio } from "./newtonEjercicios";
+import { c14Ejercicios, type C14Ejercicio } from "./c14Ejercicios";
 
 export type Segmento =
   | { tipo: "texto"; contenido: string }
@@ -18,6 +18,12 @@ export interface PreguntaQuiz2 {
   pasos: Segmento[][];
 }
 
+type Quiz2Source =
+  | { tipo: "crecimiento"; ej: CrecimientoEjercicio }
+  | { tipo: "decaimiento"; ej: DecaimientoEjercicio }
+  | { tipo: "newton"; ej: NewtonEjercicio }
+  | { tipo: "c14"; ej: C14Ejercicio };
+
 function getRandomFrom<T>(arr: T[], count: number): T[] {
   const shuffled = [...arr].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
@@ -28,7 +34,7 @@ function fmt(n: number): string {
 }
 
 export function generarQuiz2(cantidad: number = 5): PreguntaQuiz2[] {
-  const mezcla: { tipo: "crecimiento" | "decaimiento" | "newton" | "c14"; ej: any }[] = [
+  const mezcla: Quiz2Source[] = [
     ...crecimientoEjercicios.map((ej) => ({ tipo: "crecimiento" as const, ej })),
     ...decaimientoEjercicios.map((ej) => ({ tipo: "decaimiento" as const, ej })),
     ...newtonEjercicios.map((ej) => ({ tipo: "newton" as const, ej })),
