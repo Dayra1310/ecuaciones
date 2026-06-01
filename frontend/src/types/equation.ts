@@ -3,20 +3,6 @@ export interface StepDetail {
   substeps: string[];
 }
 
-export interface EquationRequest {
-  M: string;
-  N: string;
-  variable?: string;
-}
-
-export interface EquationResponse {
-  exact: boolean;
-  solution: string | null;
-  integrating_factor: string | null;
-  method: string | null;
-  steps: StepDetail[];
-}
-
 export interface PopulationGrowthRequest {
   P0: number;
   P: number;

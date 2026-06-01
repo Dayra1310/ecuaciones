@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { EquationRequest, EquationResponse, PopulationGrowthRequest, PopulationGrowthResponse, RadioactiveDecayRequest, RadioactiveDecayResponse, C14DatingRequest, C14DatingResponse, NewtonCoolingRequest, NewtonCoolingResponse } from "../types/equation";
+import type { PopulationGrowthRequest, PopulationGrowthResponse, RadioactiveDecayRequest, RadioactiveDecayResponse, C14DatingRequest, C14DatingResponse, NewtonCoolingRequest, NewtonCoolingResponse } from "../types/equation";
 
 const apiBaseUrl = (import.meta.env.VITE_API_URL ?? "/api/v1").replace(/\/$/, "");
 
@@ -7,16 +7,6 @@ const api = axios.create({
   baseURL: apiBaseUrl,
   headers: { "Content-Type": "application/json" },
 });
-
-export async function solveEquation(data: EquationRequest): Promise<EquationResponse> {
-  const res = await api.post<EquationResponse>("/equations/solve", data);
-  return res.data;
-}
-
-export async function validateExpression(expression: string): Promise<boolean> {
-  const res = await api.post<{ valid: boolean }>("/equations/validate", { expression });
-  return res.data.valid;
-}
 
 export async function solvePopulationGrowth(data: PopulationGrowthRequest): Promise<PopulationGrowthResponse> {
   const res = await api.post<PopulationGrowthResponse>("/equations/population-growth", data);

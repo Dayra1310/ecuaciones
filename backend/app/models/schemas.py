@@ -6,24 +6,6 @@ class StepDetail(BaseModel):
     substeps: list[str]
 
 
-class DifferentialEquationRequest(BaseModel):
-    M: str
-    N: str
-    variable: str = "x"
-
-
-class ExpressionValidationRequest(BaseModel):
-    expression: str
-
-
-class DifferentialEquationResponse(BaseModel):
-    exact: bool
-    solution: str | None = None
-    integrating_factor: str | None = None
-    method: str | None = None
-    steps: list[StepDetail]
-
-
 class PopulationGrowthRequest(BaseModel):
     P0: float
     P: float

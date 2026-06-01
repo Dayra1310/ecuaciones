@@ -1,10 +1,5 @@
-import re
-
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import (
-    DifferentialEquationRequest,
-    DifferentialEquationResponse,
-    ExpressionValidationRequest,
     PopulationGrowthRequest,
     PopulationGrowthResponse,
     RadioactiveDecayRequest,
@@ -15,7 +10,6 @@ from app.models.schemas import (
     NewtonCoolingResponse,
     StepDetail,
 )
-from app.services.ode_solver import solve_differential_equation
 import sympy as sp
 
 router = APIRouter(prefix="/equations", tags=["Equations"])
@@ -37,30 +31,6 @@ def _classify_ode(ode, func):
         for d in derivs
     ) if derivs else 0
     return is_linear, order
-
-
-@router.post("/solve", response_model=DifferentialEquationResponse)
-def solve_equation(req: DifferentialEquationRequest):
-    try:
-        def preprocess(val: str) -> str:
-            return re.sub(r"(\d)([a-zA-Z]+)", lambda m: m[1] + "*" + "*".join(m[2]), val).replace("^", "**")
-        M = preprocess(req.M)
-        N = preprocess(req.N)
-        result = solve_differential_equation(M, N, req.variable)
-        return DifferentialEquationResponse(**result)
-    except (sp.SympifyError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=f"Error al parsear la expresión: {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-
-
-@router.post("/validate")
-def validate_expression(req: ExpressionValidationRequest):
-    try:
-        sp.sympify(req.expression)
-        return {"valid": True}
-    except (sp.SympifyError, ValueError):
-        return {"valid": False}
 
 
 @router.post("/population-growth", response_model=PopulationGrowthResponse)
