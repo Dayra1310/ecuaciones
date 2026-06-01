@@ -7,11 +7,13 @@ export interface PopulationGrowthRequest {
   P0: number;
   P: number;
   t: number;
+  t2: number;
 }
 
 export interface PopulationGrowthResponse {
   k: number;
   solution: string;
+  popAtT2: number;
   steps: StepDetail[];
 }
 
@@ -45,11 +47,13 @@ export interface NewtonCoolingRequest {
   T0: number;
   t: number;
   T: number;
+  t2: number;
 }
 
 export interface NewtonCoolingResponse {
   k: number;
   solution: string;
+  tempAtT2: number;
   steps: StepDetail[];
 }
 

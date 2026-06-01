@@ -39,6 +39,8 @@ def population_growth(req: PopulationGrowthRequest):
         raise HTTPException(status_code=400, detail="P0 y P deben ser positivos")
     if req.t <= 0:
         raise HTTPException(status_code=400, detail="El tiempo debe ser positivo")
+    if req.t2 <= 0:
+        raise HTTPException(status_code=400, detail="t2 debe ser positivo")
 
     t, k = sp.symbols("t k")
     P = sp.Function("P")
@@ -49,6 +51,7 @@ def population_growth(req: PopulationGrowthRequest):
     particular = sp.dsolve(ode, P(t), ics={P(0): req.P0})
     k_val = _real_solution(sp.solve(sp.Eq(particular.rhs.subs(t, req.t), req.P), k))
     final_sol = particular.rhs.subs(k, k_val)
+    pop_at_t2 = float(final_sol.subs(t, req.t2))
 
     P_sym, C1 = sp.symbols("P C1")
     lhs_int = sp.integrate(1 / P_sym, P_sym)
@@ -122,6 +125,7 @@ def population_growth(req: PopulationGrowthRequest):
     return PopulationGrowthResponse(
         k=round(k_val, 6),
         solution=f"P(t) = {final_sol}",
+        popAtT2=round(pop_at_t2, 6),
         steps=steps,
     )
 
@@ -346,6 +350,8 @@ def newton_cooling(req: NewtonCoolingRequest):
         raise HTTPException(status_code=400, detail="La temperatura inicial no puede ser igual a la ambiente")
     if req.t <= 0:
         raise HTTPException(status_code=400, detail="El tiempo debe ser positivo")
+    if req.t2 <= 0:
+        raise HTTPException(status_code=400, detail="t2 debe ser positivo")
 
     t, k = sp.symbols("t k")
     T = sp.Function("T")
@@ -357,6 +363,7 @@ def newton_cooling(req: NewtonCoolingRequest):
     particular = sp.dsolve(ode, T(t), ics={T(0): req.T0}).subs(Tm, req.Tm)
     k_val = _real_solution(sp.solve(sp.Eq(particular.rhs.subs(t, req.t), req.T), k))
     final_sol = particular.rhs.subs(k, k_val)
+    temp_at_t2 = float(final_sol.subs(t, req.t2))
 
     T_sym, C1 = sp.symbols("T C1")
     lhs_int = sp.integrate(1 / (T_sym - Tm), (T_sym,))
@@ -431,5 +438,6 @@ def newton_cooling(req: NewtonCoolingRequest):
     return NewtonCoolingResponse(
         k=round(k_val, 6),
         solution=f"T(t) = {final_sol}",
+        tempAtT2=round(temp_at_t2, 6),
         steps=steps,
     )

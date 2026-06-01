@@ -98,13 +98,13 @@ export function Home() {
     setPopT2(t2);
     setError(null);
     popMutation.mutate(
-      { P0, P, t },
+      { P0, P, t, t2 },
       {
         onSuccess: (data) => {
           setPopResult(data);
-          setPopAtT2(P0 * Math.exp(data.k * t2));
+          setPopAtT2(data.popAtT2);
         },
-        onError: (err) => setError(err.message),
+        onError: (err) => setError((err.response?.data as { detail?: string })?.detail ?? err.message),
       }
     );
   };
@@ -115,7 +115,7 @@ export function Home() {
       { A1, A2, t },
       {
         onSuccess: (data) => setDecayResult(data),
-        onError: (err) => setError(err.message),
+        onError: (err) => setError((err.response?.data as { detail?: string })?.detail ?? err.message),
       }
     );
   };
@@ -126,7 +126,7 @@ export function Home() {
       { N0: 100, N },
       {
         onSuccess: (data) => setC14Result(data),
-        onError: (err) => setError(err.message),
+        onError: (err) => setError((err.response?.data as { detail?: string })?.detail ?? err.message),
       }
     );
   };
@@ -136,13 +136,13 @@ export function Home() {
     setNewtonT2(t2);
     setError(null);
     newtonMutation.mutate(
-      { Tm, T0, t, T },
+      { Tm, T0, t, T, t2 },
       {
         onSuccess: (data) => {
           setNewtonResult(data);
-          setNewtonAtT2(Tm + (T0 - Tm) * Math.exp(data.k * t2));
+          setNewtonAtT2(data.tempAtT2);
         },
-        onError: (err) => setError(err.message),
+        onError: (err) => setError((err.response?.data as { detail?: string })?.detail ?? err.message),
       }
     );
   };

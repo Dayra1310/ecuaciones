@@ -10,11 +10,13 @@ class PopulationGrowthRequest(BaseModel):
     P0: float
     P: float
     t: float
+    t2: float
 
 
 class PopulationGrowthResponse(BaseModel):
     k: float
     solution: str
+    popAtT2: float
     steps: list[StepDetail]
 
 
@@ -48,11 +50,13 @@ class NewtonCoolingRequest(BaseModel):
     T0: float
     t: float
     T: float
+    t2: float
 
 
 class NewtonCoolingResponse(BaseModel):
     k: float
     solution: str
+    tempAtT2: float
     steps: list[StepDetail]
 
 
